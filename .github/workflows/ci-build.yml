@@ -1,6 +1,9 @@
 ---
 on:
   pull_request:
+  release:
+    types:
+      - published
 
 concurrency:
   group: ci-build-${{ github.ref }}
@@ -33,38 +36,6 @@ jobs:
     with:
       EXCLUDE_REGEX: 'amazonlinux-2.*|rhel.*|sles.*|solaris.*|windows-11-aarch64.*,macos-*'
 
-#   packer-lint:
-#     uses: chef/github-workflows/.github/workflows/packer-lint.yml@main
-#     secrets: inherit
-
-  pkr-bld-amazonlinux-arm64:
-    uses: ./.github/workflows/pkr-bld-amazonlinux-arm64.yml
-    secrets: inherit
-
-  pkr-bld-amazonlinux-x64:
-    uses: ./.github/workflows/pkr-bld-amazonlinux-x64.yml
-    secrets: inherit
-
-  pkr-bld-hyperv-x64:
-    uses: ./.github/workflows/pkr-bld-hyperv-x64.yml
-    secrets: inherit
-
-  pkr-bld-parallels-arm64:
-    uses: ./.github/workflows/pkr-bld-parallels-arm64.yml
-    secrets: inherit
-
-  pkr-bld-parallels-x64:
-    uses: ./.github/workflows/pkr-bld-parallels-x64.yml
-    secrets: inherit
-
-  pkr-bld-qemu-arm64:
-    uses: ./.github/workflows/pkr-bld-qemu-arm64.yml
-    secrets: inherit
-
-  pkr-bld-qemu-x64:
-    uses: ./.github/workflows/pkr-bld-qemu-x64.yml
-    secrets: inherit
-
   pkr-bld-virtualbox-arm64:
     uses: ./.github/workflows/pkr-bld-virtualbox-arm64.yml
     secrets: inherit
@@ -73,14 +44,26 @@ jobs:
     uses: ./.github/workflows/pkr-bld-virtualbox-x64.yml
     secrets: inherit
 
-  pkr-bld-vmware-arm64:
-    uses: ./.github/workflows/pkr-bld-vmware-arm64.yml
-    secrets: inherit
+  publish-artifacts:
+    if: github.event_name == 'release'
+    needs:
+      - pkr-bld-virtualbox-arm64
+      - pkr-bld-virtualbox-x64
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: ./artifacts
 
-  pkr-bld-vmware-x64:
-    uses: ./.github/workflows/pkr-bld-vmware-x64.yml
-    secrets: inherit
-
+      - name: Upload artifacts to release
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./artifacts
+          asset_name: pkr-build-artifacts.zip
+          asset_content_type: application/zip
+          
   check_jobs_pass:
     if: always()
     needs:
